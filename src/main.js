@@ -2,7 +2,7 @@ const path = require("path");
 const { app, Tray, Menu, shell, nativeImage, Notification } = require("electron");
 const { startAgent, stopAgent } = require("./service");
 
-const AGENT_UI_URL = "http://127.0.0.1:5177/ui";
+const AGENT_UI_URL = "http://127.0.0.1:5177/ui/";
 
 let tray = null;
 let isQuitting = false;
@@ -13,16 +13,19 @@ let agentState = {
 };
 
 function getIcon() {
+  const iconDirs = [path.join(__dirname, "assets"), path.join(process.resourcesPath, "assets")];
   const candidates =
     process.platform === "win32"
       ? ["tray.ico", "trayTemplate.png"]
       : ["trayTemplate.png", "tray.ico"];
 
-  for (const filename of candidates) {
-    const iconPath = path.join(__dirname, "assets", filename);
-    const icon = nativeImage.createFromPath(iconPath);
-    if (!icon.isEmpty()) {
-      return icon;
+  for (const iconDir of iconDirs) {
+    for (const filename of candidates) {
+      const iconPath = path.join(iconDir, filename);
+      const icon = nativeImage.createFromPath(iconPath);
+      if (!icon.isEmpty()) {
+        return icon;
+      }
     }
   }
   return nativeImage.createEmpty();
@@ -120,3 +123,7 @@ app.on("before-quit", async (event) => {
 app.on("window-all-closed", (event) => {
   event.preventDefault();
 });
+
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.kensar.printagent.tray");
+}

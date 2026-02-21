@@ -220,8 +220,12 @@ function createApp(configDir) {
     next();
   });
 
-  app.get(["/", "/ui", "/ui/", "/ui/index.html"], (_req, res) => {
+  app.get(["/", "/ui/", "/ui/index.html"], (_req, res) => {
     sendUiFile(res, "index.html", "text/html; charset=utf-8");
+  });
+
+  app.get("/ui", (_req, res) => {
+    res.redirect(301, "/ui/");
   });
 
   app.get("/ui/styles.css", (_req, res) => {

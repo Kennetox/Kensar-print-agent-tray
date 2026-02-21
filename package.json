@@ -26,7 +26,18 @@
     "extraMetadata": {
       "main": "src/main.js"
     },
+    "extraResources": [
+      {
+        "from": "src/assets",
+        "to": "assets",
+        "filter": [
+          "tray.ico",
+          "trayTemplate.png"
+        ]
+      }
+    ],
     "win": {
+      "icon": "src/assets/tray.ico",
       "target": [
         "nsis"
       ],
@@ -38,7 +49,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Kensar Print Agent"
+      "shortcutName": "Kensar Print Agent",
+      "installerIcon": "src/assets/tray.ico",
+      "uninstallerIcon": "src/assets/tray.ico",
+      "installerHeaderIcon": "src/assets/tray.ico"
     },
     "publish": [
       {
