@@ -13,12 +13,19 @@ let agentState = {
 };
 
 function getIcon() {
-  const iconPath = path.join(__dirname, "assets", process.platform === "win32" ? "tray.ico" : "trayTemplate.png");
-  const icon = nativeImage.createFromPath(iconPath);
-  if (icon.isEmpty()) {
-    return nativeImage.createEmpty();
+  const candidates =
+    process.platform === "win32"
+      ? ["tray.ico", "trayTemplate.png"]
+      : ["trayTemplate.png", "tray.ico"];
+
+  for (const filename of candidates) {
+    const iconPath = path.join(__dirname, "assets", filename);
+    const icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      return icon;
+    }
   }
-  return icon;
+  return nativeImage.createEmpty();
 }
 
 function updateTrayMenu() {
