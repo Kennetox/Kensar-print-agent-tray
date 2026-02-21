@@ -1,0 +1,51 @@
+{
+  "name": "kensar-print-agent-tray",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tray app for Kensar local print agent",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "build:win": "electron-builder --win nsis --publish never",
+    "build:win:publish": "electron-builder --win nsis --publish always"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.kensar.printagent.tray",
+    "productName": "Kensar Print Agent",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "KensarPrintAgent-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kensar Print Agent"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Kennetox",
+        "repo": "Kensar-print-agent-tray"
+      }
+    ]
+  }
+}

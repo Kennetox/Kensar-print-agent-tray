@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kensar Print Agent</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="card">
+        <div>
+          <h1>Kensar Print Agent</h1>
+          <p>Configuracion local para autodeteccion y seleccion de impresora.</p>
+        </div>
+        <div id="healthBadge" class="badge neutral">Cargando...</div>
+      </header>
+
+      <section class="card">
+        <h2>Conexion</h2>
+        <div class="grid">
+          <label>
+            URL seleccionada
+            <input id="printerUrlInput" type="text" placeholder="http://10.10.20.19:8081" />
+          </label>
+          <label>
+            Formato etiqueta
+            <input id="formatInput" type="text" placeholder="Kensar" />
+          </label>
+        </div>
+        <div class="actions">
+          <button id="saveConfigBtn" class="primary">Guardar configuracion</button>
+          <button id="testPrintBtn">Imprimir prueba</button>
+          <button id="refreshBtn">Refrescar estado</button>
+        </div>
+        <p id="statusMessage" class="status"></p>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <h2>Autodeteccion de impresoras</h2>
+          <button id="discoverBtn" class="primary">Buscar impresoras</button>
+        </div>
+        <p class="hint">Escanea subredes locales privadas en puerto 8081.</p>
+        <div id="discoverMeta" class="meta"></div>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>Puerto</th>
+                <th>URL</th>
+                <th>Accion</th>
+              </tr>
+            </thead>
+            <tbody id="printersTableBody">
+              <tr>
+                <td colspan="4" class="empty">Sin escaneo ejecutado.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
