@@ -10,8 +10,10 @@ const AGENT_PORT = Number(process.env.AGENT_PORT || 5177);
 const DEFAULT_PRINTER_URL = process.env.PRINTER_URL || "http://10.10.20.19:8081";
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 3000);
 const DISCOVERY_PORT = Number(process.env.DISCOVERY_PORT || 8081);
-const DISCOVERY_TIMEOUT_MS = Number(process.env.DISCOVERY_TIMEOUT_MS || 350);
-const DISCOVERY_CONCURRENCY = Number(process.env.DISCOVERY_CONCURRENCY || 48);
+const DISCOVERY_TIMEOUT_MS = Number(process.env.DISCOVERY_TIMEOUT_MS || 220);
+const DISCOVERY_CONCURRENCY = Number(process.env.DISCOVERY_CONCURRENCY || 16);
+const DISCOVERY_CACHE_TTL_MS = Number(process.env.DISCOVERY_CACHE_TTL_MS || 45000);
+const DISCOVERY_MIN_INTERVAL_MS = Number(process.env.DISCOVERY_MIN_INTERVAL_MS || 5000);
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), ".kensar-print-agent");
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -19,6 +21,8 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 let agentServer = null;
 let agentConfig = null;
 let discoveryCache = { updatedAt: null, printers: [] };
+let discoveryInFlight = null;
+let discoveryStartedAt = 0;
 
 function getConfigPath(configDir) {
   return path.join(configDir, "config.json");
@@ -125,7 +129,28 @@ async function runPool(items, worker, concurrency) {
   return results;
 }
 
-async function discoverPrinters({ timeoutMs = DISCOVERY_TIMEOUT_MS, port = DISCOVERY_PORT } = {}) {
+async function discoverPrinters({ timeoutMs = DISCOVERY_TIMEOUT_MS, port = DISCOVERY_PORT, force = false } = {}) {
+  const now = Date.now();
+  const cacheAge =
+    discoveryCache.updatedAt && !Number.isNaN(new Date(discoveryCache.updatedAt).getTime())
+      ? now - new Date(discoveryCache.updatedAt).getTime()
+      : Number.POSITIVE_INFINITY;
+
+  if (!force && cacheAge >= 0 && cacheAge <= DISCOVERY_CACHE_TTL_MS) {
+    return { ...discoveryCache, cached: true };
+  }
+
+  if (!force && discoveryInFlight) {
+    return discoveryInFlight;
+  }
+
+  if (!force && now - discoveryStartedAt < DISCOVERY_MIN_INTERVAL_MS) {
+    return { ...discoveryCache, throttled: true, cached: true };
+  }
+
+  discoveryStartedAt = now;
+
+  discoveryInFlight = (async () => {
   const prefixes = listSubnetPrefixes();
   if (!prefixes.length) {
     discoveryCache = { updatedAt: new Date().toISOString(), printers: [] };
@@ -152,6 +177,13 @@ async function discoverPrinters({ timeoutMs = DISCOVERY_TIMEOUT_MS, port = DISCO
   const printers = checks.filter(Boolean);
   discoveryCache = { updatedAt: new Date().toISOString(), printers };
   return discoveryCache;
+  })();
+
+  try {
+    return await discoveryInFlight;
+  } finally {
+    discoveryInFlight = null;
+  }
 }
 
 function sendToPrinter(printerUrl, payload) {
@@ -282,9 +314,10 @@ function createApp(configDir) {
   app.get("/printers/discover", async (req, res) => {
     const timeoutMs = Number(req.query.timeoutMs || DISCOVERY_TIMEOUT_MS);
     const port = Number(req.query.port || DISCOVERY_PORT);
+    const force = String(req.query.force || "").toLowerCase() === "true";
 
     try {
-      const result = await discoverPrinters({ timeoutMs, port });
+      const result = await discoverPrinters({ timeoutMs, port, force });
       return res.json({ ok: true, selectedPrinterUrl: agentConfig.selectedPrinterUrl, ...result });
     } catch (error) {
       return res.status(500).json({

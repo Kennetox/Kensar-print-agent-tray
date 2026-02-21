@@ -82,14 +82,28 @@ async function loadConfig() {
 }
 
 async function discoverPrinters() {
+  discoverBtn.disabled = true;
   setStatus("Buscando impresoras en la red...");
-  const response = await httpJson("/printers/discover");
-  renderPrinters(response.printers || []);
-  const count = (response.printers || []).length;
-  discoverMeta.textContent = `Ultimo escaneo: ${new Date(
-    response.updatedAt
-  ).toLocaleString()} · Detectadas: ${count}`;
-  setStatus(count ? `Se detectaron ${count} impresora(s).` : "Sin impresoras detectadas.");
+  try {
+    const response = await httpJson("/printers/discover");
+    renderPrinters(response.printers || []);
+    const count = (response.printers || []).length;
+    discoverMeta.textContent = `Ultimo escaneo: ${new Date(
+      response.updatedAt
+    ).toLocaleString()} · Detectadas: ${count}`;
+
+    if (response.throttled) {
+      setStatus("Escaneo limitado temporalmente. Mostrando resultado reciente.");
+      return;
+    }
+    if (response.cached) {
+      setStatus("Mostrando resultado reciente de autodeteccion.");
+      return;
+    }
+    setStatus(count ? `Se detectaron ${count} impresora(s).` : "Sin impresoras detectadas.");
+  } finally {
+    discoverBtn.disabled = false;
+  }
 }
 
 async function saveConfig() {
