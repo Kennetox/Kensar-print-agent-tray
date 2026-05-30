@@ -206,3 +206,38 @@ td.empty {
   color: var(--muted);
   text-align: center;
 }
+
+.hidden {
+  display: none;
+}
+
+.status.loading,
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-ring {
+  display: inline-flex;
+  animation: spin 1s linear infinite;
+}
+
+button .loading-ring {
+  margin-right: 2px;
+}
+
+button[disabled] {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+button[disabled] .loading-ring + span {
+  color: inherit;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

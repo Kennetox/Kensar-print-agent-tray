@@ -7,13 +7,85 @@ const refreshBtn = document.getElementById("refreshBtn");
 const statusMessage = document.getElementById("statusMessage");
 const discoverBtn = document.getElementById("discoverBtn");
 const discoverMeta = document.getElementById("discoverMeta");
+const discoverResults = document.getElementById("discoverResults");
 const printersTableBody = document.getElementById("printersTableBody");
 
-function setStatus(message, type = "neutral") {
-  statusMessage.textContent = message || "";
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildLoadingRingSvg(size = 18) {
+  const center = size / 2;
+  const maxThickness = Math.max(6, size * 0.18);
+  const minThickness = Math.max(1.5, size * 0.025);
+  const outerRadius = center - 1;
+  const startDeg = -104;
+  const endDeg = 200;
+  const segments = 70;
+
+  const toXY = (deg, radius) => {
+    const rad = (deg * Math.PI) / 180;
+    return { x: center + radius * Math.cos(rad), y: center + radius * Math.sin(rad) };
+  };
+
+  const outerPoints = [];
+  const innerPoints = [];
+  for (let i = 0; i <= segments; i += 1) {
+    const t = i / segments;
+    const angle = startDeg + (endDeg - startDeg) * t;
+    const thickness = minThickness + (maxThickness - minThickness) * t;
+    const outer = toXY(angle, outerRadius);
+    const inner = toXY(angle, outerRadius - thickness);
+    outerPoints.push(`${outer.x.toFixed(3)},${outer.y.toFixed(3)}`);
+    innerPoints.push(`${inner.x.toFixed(3)},${inner.y.toFixed(3)}`);
+  }
+
+  const pathD = `M ${outerPoints.join(" L ")} L ${innerPoints.reverse().join(" L ")} Z`;
+  const startMid = toXY(startDeg, outerRadius - minThickness / 2);
+  const endMid = toXY(endDeg, outerRadius - maxThickness / 2);
+
+  return `
+    <span class="loading-ring" style="width:${size}px;height:${size}px" aria-hidden="true">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <defs>
+          <linearGradient id="metrik-spinner-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#10b981"></stop>
+            <stop offset="100%" stop-color="#6ee7b7"></stop>
+          </linearGradient>
+        </defs>
+        <path d="${pathD}" fill="url(#metrik-spinner-gradient)"></path>
+        <circle cx="${startMid.x}" cy="${startMid.y}" r="${minThickness / 2}" fill="#5fdab4"></circle>
+        <circle cx="${endMid.x}" cy="${endMid.y}" r="${maxThickness / 2}" fill="#1fc68e"></circle>
+      </svg>
+    </span>
+  `;
+}
+
+function setStatus(message, type = "neutral", loading = false) {
+  const safeMessage = escapeHtml(message || "");
+  statusMessage.innerHTML = loading
+    ? `${buildLoadingRingSvg(18)}<span>${safeMessage}</span>`
+    : safeMessage;
   statusMessage.className = "status";
   if (type === "ok") statusMessage.classList.add("ok");
   if (type === "error") statusMessage.classList.add("error");
+  if (loading) statusMessage.classList.add("loading");
+}
+
+function setButtonLoading(button, active, loadingText, idleText) {
+  if (!button) return;
+  if (active) {
+    button.disabled = true;
+    button.innerHTML = `${buildLoadingRingSvg(16)}<span>${escapeHtml(loadingText)}</span>`;
+    return;
+  }
+  button.disabled = false;
+  button.textContent = idleText;
 }
 
 async function httpJson(url, options) {
@@ -82,10 +154,13 @@ async function loadConfig() {
 }
 
 async function discoverPrinters() {
-  discoverBtn.disabled = true;
-  setStatus("Buscando impresoras en la red...");
+  discoverResults.classList.remove("hidden");
+  discoverMeta.textContent = "";
+  printersTableBody.innerHTML = `<tr><td colspan="4" class="empty loading-inline">${buildLoadingRingSvg(18)}<span>Buscando impresoras...</span></td></tr>`;
+  setButtonLoading(discoverBtn, true, "Buscando...", "Buscar impresoras");
+  setStatus("Buscando impresoras en la red...", "neutral", true);
   try {
-    const response = await httpJson("/printers/discover");
+    const response = await httpJson(`/printers/discover?force=true&timeoutMs=700&t=${Date.now()}`);
     renderPrinters(response.printers || []);
     const count = (response.printers || []).length;
     discoverMeta.textContent = `Ultimo escaneo: ${new Date(
@@ -102,7 +177,7 @@ async function discoverPrinters() {
     }
     setStatus(count ? `Se detectaron ${count} impresora(s).` : "Sin impresoras detectadas.");
   } finally {
-    discoverBtn.disabled = false;
+    setButtonLoading(discoverBtn, false, "Buscando...", "Buscar impresoras");
   }
 }
 
@@ -144,28 +219,39 @@ async function testPrint() {
 
 saveConfigBtn.addEventListener("click", async () => {
   try {
+    setButtonLoading(saveConfigBtn, true, "Guardando...", "Guardar configuracion");
+    setStatus("Guardando configuracion...", "neutral", true);
     await saveConfig();
   } catch (error) {
     setStatus(error.message, "error");
+  } finally {
+    setButtonLoading(saveConfigBtn, false, "Guardando...", "Guardar configuracion");
   }
 });
 
 testPrintBtn.addEventListener("click", async () => {
   try {
-    setStatus("Enviando prueba...");
+    setButtonLoading(testPrintBtn, true, "Imprimiendo...", "Imprimir prueba");
+    setStatus("Enviando prueba...", "neutral", true);
     await testPrint();
   } catch (error) {
     setStatus(error.message, "error");
+  } finally {
+    setButtonLoading(testPrintBtn, false, "Imprimiendo...", "Imprimir prueba");
   }
 });
 
 refreshBtn.addEventListener("click", async () => {
   try {
+    setButtonLoading(refreshBtn, true, "Cargando...", "Refrescar estado");
+    setStatus("Actualizando estado...", "neutral", true);
     await loadHealth();
     await loadConfig();
     setStatus("Estado actualizado.", "ok");
   } catch (error) {
     setStatus(error.message, "error");
+  } finally {
+    setButtonLoading(refreshBtn, false, "Cargando...", "Refrescar estado");
   }
 });
 
@@ -174,15 +260,16 @@ discoverBtn.addEventListener("click", async () => {
     await discoverPrinters();
   } catch (error) {
     setStatus(error.message, "error");
+    setButtonLoading(discoverBtn, false, "Buscando...", "Buscar impresoras");
   }
 });
 
 async function init() {
   try {
+    setStatus("Cargando configuracion inicial...", "neutral", true);
     await loadHealth();
     await loadConfig();
-    const data = await httpJson("/printers");
-    renderPrinters((data.discovered && data.discovered.printers) || []);
+    setStatus("Estado listo.", "ok");
   } catch (error) {
     setStatus(error.message, "error");
   }
